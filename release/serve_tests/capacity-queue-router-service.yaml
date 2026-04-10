@@ -1,0 +1,37 @@
+name: capacity-queue-router-benchmark-service
+image_uri: anyscale/ray:nightly-py311-cu128
+compute_config:
+  head_node:
+    instance_type: m5.2xlarge
+  worker_nodes:
+    - instance_type: m5.2xlarge
+      min_nodes: 1
+      max_nodes: 20
+working_dir: .
+applications:
+  - name: capacity-queue-router-benchmark
+    route_prefix: /
+    import_path: router_benchmark.capacity_queue_app:app
+    runtime_env:
+      env_vars:
+        # Faster proxy drain for quicker shutdown
+        RAY_SERVE_PROXY_MIN_DRAINING_PERIOD_S: "0.1"
+        # Extend runtime env reference lifetime
+        RAY_RUNTIME_ENV_TEMPORARY_REFERENCE_EXPIRATION_S: "1800"
+        # Allow forceful shutdown of ingress replicas
+        RAY_SERVE_DISABLE_SHUTTING_DOWN_INGRESS_REPLICAS_FORCEFULLY: "0"
+        ANYSCALE_RAY_SERVE_ENABLE_DIRECT_INGRESS: "0"
+        RAY_SERVE_ENABLE_DIRECT_INGRESS: "0"
+        # Topology: "1" = packed, "0" = spread
+        RAY_SERVE_USE_PACK_SCHEDULING_STRATEGY: "0"
+    deployments:
+      - name: ChildDeployment
+        num_replicas: 32
+        max_ongoing_requests: 2
+        ray_actor_options:
+          num_cpus: 1
+      - name: ParentDeployment
+        num_replicas: 32
+        max_ongoing_requests: 30
+        ray_actor_options:
+          num_cpus: 1
